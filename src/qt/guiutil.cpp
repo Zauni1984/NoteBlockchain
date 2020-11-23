@@ -89,7 +89,7 @@ QString dateTimeStr(qint64 nTime)
 QFont fixedPitchFont()
 {
     QFont font("Sans");
-    font.setFamily("Akrobat");
+    font.setFamily("TeXGyreAdventor");
     return font;
 //#if QT_VERSION >= 0x50200
 //    return QFontDatabase::systemFont(QFontDatabase::FixedFont);
