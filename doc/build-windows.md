@@ -95,7 +95,7 @@ Once the source code is ready the build steps are below.
     make HOST=x86_64-w64-mingw32
     cd ..
     ./autogen.sh # not required when building from tarball
-    CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix=/
+    ./configure --prefix=`pwd`/depends/x86_64-w64-mingw32
     make
 
 ## Building for 32-bit Windows
@@ -125,7 +125,7 @@ Then build using:
     make HOST=i686-w64-mingw32
     cd ..
     ./autogen.sh # not required when building from tarball
-    CONFIG_SITE=$PWD/depends/i686-w64-mingw32/share/config.site ./configure --prefix=/
+    ./configure --prefix=`pwd`/depends/i686-w64-mingw32
     make
 
 ## Depends system
