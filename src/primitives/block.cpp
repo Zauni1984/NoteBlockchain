@@ -9,7 +9,8 @@
 #include <tinyformat.h>
 #include <utilstrencodings.h>
 #include <crypto/common.h>
-#include <crypto/scrypt.h>
+
+#include <kawpow/kawpow.h>  // Neue Datei – wir erstellen sie später
 
 uint256 CBlockHeader::GetHash() const
 {
@@ -18,9 +19,7 @@ uint256 CBlockHeader::GetHash() const
 
 uint256 CBlockHeader::GetPoWHash() const
 {
-    uint256 thash;
-    scrypt_1024_1_1_256(BEGIN(nVersion), BEGIN(thash));
-    return thash;
+    return kawpow::HashPoW(*this);
 }
 
 std::string CBlock::ToString() const
