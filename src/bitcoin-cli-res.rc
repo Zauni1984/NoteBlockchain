@@ -1,27 +1,32 @@
-#include <windows.h>             // needed for VERSIONINFO
-#include "clientversion.h"       // holds the needed client version information
+#include <windows.h>             // Required for VERSIONINFO
+#include "clientversion.h"      // Provides client version information
 
+// Define product and file version
 #define VER_PRODUCTVERSION     CLIENT_VERSION_MAJOR,CLIENT_VERSION_MINOR,CLIENT_VERSION_REVISION,CLIENT_VERSION_BUILD
 #define VER_PRODUCTVERSION_STR STRINGIZE(CLIENT_VERSION_MAJOR) "." STRINGIZE(CLIENT_VERSION_MINOR) "." STRINGIZE(CLIENT_VERSION_REVISION) "." STRINGIZE(CLIENT_VERSION_BUILD)
+
 #define VER_FILEVERSION        VER_PRODUCTVERSION
 #define VER_FILEVERSION_STR    VER_PRODUCTVERSION_STR
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION     VER_FILEVERSION
-PRODUCTVERSION  VER_PRODUCTVERSION
-FILEOS          VOS_NT_WINDOWS32
-FILETYPE        VFT_APP
+ FILEVERSION     VER_FILEVERSION
+ PRODUCTVERSION  VER_PRODUCTVERSION
+ FILEFLAGSMASK   0x3fL
+ FILEFLAGS       0x0L
+ FILEOS          VOS_NT_WINDOWS32
+ FILETYPE        VFT_APP
+ FILESUBTYPE     0x0L
 BEGIN
     BLOCK "StringFileInfo"
     BEGIN
-        BLOCK "040904E4" // U.S. English - multilingual (hex)
+        BLOCK "040904B0" // U.S. English, Unicode
         BEGIN
             VALUE "CompanyName",        "Notebc"
-            VALUE "FileDescription",    "notecoin-cli (JSON-RPC client for " PACKAGE_NAME ")"
+            VALUE "FileDescription",    "notecoin-cli – JSON-RPC client for " PACKAGE_NAME
             VALUE "FileVersion",        VER_FILEVERSION_STR
             VALUE "InternalName",       "notecoin-cli"
             VALUE "LegalCopyright",     COPYRIGHT_STR
-            VALUE "LegalTrademarks1",   "Distributed under the MIT software license, see the accompanying file COPYING or http://www.opensource.org/licenses/mit-license.php."
+            VALUE "LegalTrademarks",    "MIT License – see COPYING or https://opensource.org/licenses/MIT"
             VALUE "OriginalFilename",   "notecoin-cli.exe"
             VALUE "ProductName",        "notecoin-cli"
             VALUE "ProductVersion",     VER_PRODUCTVERSION_STR
@@ -30,6 +35,6 @@ BEGIN
 
     BLOCK "VarFileInfo"
     BEGIN
-        VALUE "Translation", 0x0, 1252 // language neutral - multilingual (decimal)
+        VALUE "Translation", 0x0409, 1200  // Language: US English, Unicode
     END
 END
