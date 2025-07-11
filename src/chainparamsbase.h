@@ -1,62 +1,63 @@
-// Copyright (c) 2014-2017 The Bitcoin Core developers
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// Copyright (c) 2014-2024 The NoteCoin Developers
+// Distributed under the MIT software license.
 
-#ifndef BITCOIN_CHAINPARAMSBASE_H
-#define BITCOIN_CHAINPARAMSBASE_H
+#ifndef NOTECOIN_CHAINPARAMSBASE_H
+#define NOTECOIN_CHAINPARAMSBASE_H
 
 #include <memory>
 #include <string>
 #include <vector>
 
 /**
- * CBaseChainParams defines the base parameters (shared between bitcoin-cli and bitcoind)
- * of a given instance of the Bitcoin system.
+ * CBaseChainParams defines the base parameters shared between notecoin-cli and notecoind,
+ * such as RPC port and data directory for each network.
  */
 class CBaseChainParams
 {
 public:
-    /** BIP70 chain name strings (main, test or regtest) */
+    /** Chain name identifiers */
     static const std::string MAIN;
     static const std::string TESTNET;
     static const std::string REGTEST;
 
+    /** Accessors */
     const std::string& DataDir() const { return strDataDir; }
     int RPCPort() const { return nRPCPort; }
 
 protected:
-    CBaseChainParams() {}
+    CBaseChainParams() = default;
 
-    int nRPCPort;
+    int nRPCPort = 0;
     std::string strDataDir;
 };
 
 /**
- * Creates and returns a std::unique_ptr<CBaseChainParams> of the chosen chain.
- * @returns a CBaseChainParams* of the chosen chain.
- * @throws a std::runtime_error if the chain is not supported.
+ * Creates and returns a std::unique_ptr<CBaseChainParams> for the given chain.
+ * @param chain The name of the chain (main, test, regtest).
+ * @throws std::runtime_error if the chain is unsupported.
  */
 std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain);
 
 /**
- * Append the help messages for the chainparams options to the
- * parameter string.
+ * Adds help messages related to chain selection to the usage string.
  */
-void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp=true);
+void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp = true);
 
 /**
- * Return the currently selected parameters. This won't change after app
- * startup, except for unit tests.
+ * Returns the currently selected chain parameters.
+ * This is constant after startup (except in unit tests).
  */
 const CBaseChainParams& BaseParams();
 
-/** Sets the params returned by Params() to those for the given network. */
+/**
+ * Selects and sets the base parameters for the given chain.
+ */
 void SelectBaseParams(const std::string& chain);
 
 /**
- * Looks for -regtest, -testnet and returns the appropriate BIP70 chain name.
- * @return CBaseChainParams::MAX_NETWORK_TYPES if an invalid combination is given. CBaseChainParams::MAIN by default.
+ * Determines the chain name from command line options -regtest or -testnet.
+ * @return One of CBaseChainParams::MAIN, TESTNET, or REGTEST.
  */
 std::string ChainNameFromCommandLine();
 
-#endif // BITCOIN_CHAINPARAMSBASE_H
+#endif // NOTECOIN_CHAINPARAMSBASE_H
