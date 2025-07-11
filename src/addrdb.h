@@ -3,39 +3,39 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_ADDRDB_H
-#define BITCOIN_ADDRDB_H
+#ifndef NOTECOIN_ADDRDB_H
+#define NOTECOIN_ADDRDB_H
 
 #include <fs.h>
 #include <serialize.h>
-
 #include <string>
 #include <map>
 
+// Forward declarations
 class CSubNet;
 class CAddrMan;
 class CDataStream;
 
-typedef enum BanReason
+/** Gründe für einen Bann */
+enum BanReason : uint8_t
 {
-    BanReasonUnknown          = 0,
-    BanReasonNodeMisbehaving  = 1,
-    BanReasonManuallyAdded    = 2
-} BanReason;
+    BanReasonUnknown         = 0,
+    BanReasonNodeMisbehaving = 1,
+    BanReasonManuallyAdded   = 2
+};
 
+/** Eintrag in der Bannliste */
 class CBanEntry
 {
 public:
-    static const int CURRENT_VERSION=1;
+    static constexpr int CURRENT_VERSION = 1;
+
     int nVersion;
     int64_t nCreateTime;
     int64_t nBanUntil;
-    uint8_t banReason;
+    BanReason banReason;
 
-    CBanEntry()
-    {
-        SetNull();
-    }
+    CBanEntry() { SetNull(); }
 
     explicit CBanEntry(int64_t nCreateTimeIn)
     {
@@ -46,8 +46,9 @@ public:
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(this->nVersion);
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(nVersion);
         READWRITE(nCreateTime);
         READWRITE(nBanUntil);
         READWRITE(banReason);
@@ -55,7 +56,7 @@ public:
 
     void SetNull()
     {
-        nVersion = CBanEntry::CURRENT_VERSION;
+        nVersion = CURRENT_VERSION;
         nCreateTime = 0;
         nBanUntil = 0;
         banReason = BanReasonUnknown;
@@ -64,39 +65,44 @@ public:
     std::string banReasonToString() const
     {
         switch (banReason) {
-        case BanReasonNodeMisbehaving:
-            return "node misbehaving";
-        case BanReasonManuallyAdded:
-            return "manually added";
-        default:
-            return "unknown";
+            case BanReasonNodeMisbehaving: return "node misbehaving";
+            case BanReasonManuallyAdded:   return "manually added";
+            default:                        return "unknown";
         }
     }
 };
 
-typedef std::map<CSubNet, CBanEntry> banmap_t;
+using banmap_t = std::map<CSubNet, CBanEntry>;
 
-/** Access to the (IP) address database (peers.dat) */
+/** Zugriff auf die Peer-Adresse-Datenbank (peers.dat) */
 class CAddrDB
 {
 private:
     fs::path pathAddr;
+
 public:
     CAddrDB();
+
     bool Write(const CAddrMan& addr);
     bool Read(CAddrMan& addr);
     static bool Read(CAddrMan& addr, CDataStream& ssPeers);
+
+    // Erweiterungsvorschläge:
+    bool Exists() const;
+    bool Remove() const;
 };
 
-/** Access to the banlist database (banlist.dat) */
+/** Zugriff auf die Bannliste (banlist.dat) */
 class CBanDB
 {
 private:
     fs::path pathBanlist;
+
 public:
     CBanDB();
+
     bool Write(const banmap_t& banSet);
     bool Read(banmap_t& banSet);
 };
 
-#endif // BITCOIN_ADDRDB_H
+#endif // NOTECOIN_ADDRDB_H
