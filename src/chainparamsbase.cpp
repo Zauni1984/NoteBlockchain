@@ -1,17 +1,17 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2017 The Bitcoin Core developers
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// Copyright (c) 2009-2024 The NoteCoin Developers
+// Distributed under the MIT software license.
 
 #include <chainparamsbase.h>
 
 #include <tinyformat.h>
 #include <util.h>
+#include <util/translation.h>
 
-#include <assert.h>
 #include <memory>
+#include <cassert>
 
-const std::string CBaseChainParams::MAIN = "main";
+const std::string CBaseChainParams::MAIN    = "main";
 const std::string CBaseChainParams::TESTNET = "test";
 const std::string CBaseChainParams::REGTEST = "regtest";
 
@@ -20,44 +20,34 @@ void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
     strUsage += HelpMessageGroup(_("Chain selection options:"));
     strUsage += HelpMessageOpt("-testnet", _("Use the test chain"));
     if (debugHelp) {
-        strUsage += HelpMessageOpt("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
-                                   "This is intended for regression testing tools and app development.");
+        strUsage += HelpMessageOpt("-regtest", _("Enter regression test mode, allowing instant blocks. "
+                                                 "Used for testing and app development."));
     }
 }
 
-/**
- * Main network
- */
-class CBaseMainParams : public CBaseChainParams
-{
+// -----------------------------
+// BaseChainParams Implementierung
+// -----------------------------
+
+class CBaseMainParams : public CBaseChainParams {
 public:
-    CBaseMainParams()
-    {
+    CBaseMainParams() {
         nRPCPort = 9332;
+        strDataDir = "main";
     }
 };
 
-/**
- * Testnet (v3)
- */
-class CBaseTestNetParams : public CBaseChainParams
-{
+class CBaseTestNetParams : public CBaseChainParams {
 public:
-    CBaseTestNetParams()
-    {
+    CBaseTestNetParams() {
         nRPCPort = 19332;
         strDataDir = "testnet4";
     }
 };
 
-/*
- * Regression test
- */
-class CBaseRegTestParams : public CBaseChainParams
-{
+class CBaseRegTestParams : public CBaseChainParams {
 public:
-    CBaseRegTestParams()
-    {
+    CBaseRegTestParams() {
         nRPCPort = 19443;
         strDataDir = "regtest";
     }
@@ -73,14 +63,15 @@ const CBaseChainParams& BaseParams()
 
 std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain)
 {
-    if (chain == CBaseChainParams::MAIN)
-        return std::unique_ptr<CBaseChainParams>(new CBaseMainParams());
-    else if (chain == CBaseChainParams::TESTNET)
-        return std::unique_ptr<CBaseChainParams>(new CBaseTestNetParams());
-    else if (chain == CBaseChainParams::REGTEST)
-        return std::unique_ptr<CBaseChainParams>(new CBaseRegTestParams());
-    else
-        throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
+    if (chain == CBaseChainParams::MAIN) {
+        return std::make_unique<CBaseMainParams>();
+    } else if (chain == CBaseChainParams::TESTNET) {
+        return std::make_unique<CBaseTestNetParams>();
+    } else if (chain == CBaseChainParams::REGTEST) {
+        return std::make_unique<CBaseRegTestParams>();
+    }
+
+    throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }
 
 void SelectBaseParams(const std::string& chain)
@@ -90,14 +81,15 @@ void SelectBaseParams(const std::string& chain)
 
 std::string ChainNameFromCommandLine()
 {
-    bool fRegTest = gArgs.GetBoolArg("-regtest", false);
-    bool fTestNet = gArgs.GetBoolArg("-testnet", false);
+    const bool fRegTest = gArgs.GetBoolArg("-regtest", false);
+    const bool fTestNet = gArgs.GetBoolArg("-testnet", false);
 
-    if (fTestNet && fRegTest)
+    if (fRegTest && fTestNet) {
         throw std::runtime_error("Invalid combination of -regtest and -testnet.");
-    if (fRegTest)
-        return CBaseChainParams::REGTEST;
-    if (fTestNet)
-        return CBaseChainParams::TESTNET;
+    }
+
+    if (fRegTest)  return CBaseChainParams::REGTEST;
+    if (fTestNet)  return CBaseChainParams::TESTNET;
+
     return CBaseChainParams::MAIN;
 }
