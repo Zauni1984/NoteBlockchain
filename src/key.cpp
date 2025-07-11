@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#include <bip39.h> // Neue BIP39 Unterstützung
+#include <bip39.h> // BIP39-Unterstützung
 
 static secp256k1_context* secp256k1_context_sign = nullptr;
 
@@ -76,14 +76,14 @@ CPubKey CKey::GetPubKey() const {
     return result;
 }
 
-// BIP39 Mnemonic to Seed
-std::vector<unsigned char> MnemonicToSeed(const std::string& mnemonic, const std::string& passphrase = "") {
+// BIP39: Mnemonic zu Seed
+std::vector<unsigned char> MnemonicToSeed(const std::string& mnemonic, const std::string& passphrase = "mnemonic") {
     std::vector<unsigned char> seed(64);
     bip39_mnemonic_to_seed(mnemonic.c_str(), passphrase.c_str(), seed.data(), nullptr);
     return seed;
 }
 
-// BIP39 Seed to CExtKey
+// BIP39 + BIP32: Seed zu Masterkey
 bool SeedToExtKey(const std::vector<unsigned char>& seed, CExtKey& out) {
     if (seed.size() < 64) return false;
     static const unsigned char hashkey[] = {'B','i','t','c','o','i','n',' ','s','e','e','d'};
@@ -97,10 +97,30 @@ bool SeedToExtKey(const std::vector<unsigned char>& seed, CExtKey& out) {
     return true;
 }
 
-// BIP44 Path Derivation: m/44'/coin'/account'/change/address
+// BIP44 Pfad: m/44'/coin_type'/account'/change/address
 bool DeriveBIP44(const CExtKey& master, CExtKey& out, uint32_t coin_type, uint32_t account, uint32_t change, uint32_t index) {
     CExtKey purposeKey, coinKey, accountKey, changeKey;
     if (!master.Derive(purposeKey, 44 | 0x80000000)) return false;
+    if (!purposeKey.Derive(coinKey, coin_type | 0x80000000)) return false;
+    if (!coinKey.Derive(accountKey, account | 0x80000000)) return false;
+    if (!accountKey.Derive(changeKey, change)) return false;
+    return changeKey.Derive(out, index);
+}
+
+// In CExtKey integrierte Methoden:
+
+CExtKey CExtKey::FromMnemonic(const std::string& mnemonic, const std::string& passphrase) {
+    std::vector<unsigned char> seed = MnemonicToSeed(mnemonic, passphrase);
+    CExtKey master;
+    if (!SeedToExtKey(seed, master)) {
+        throw std::runtime_error("Invalid mnemonic or seed conversion failed");
+    }
+    return master;
+}
+
+bool CExtKey::DeriveBIP44(CExtKey& out, uint32_t account, uint32_t change, uint32_t index, uint32_t coin_type) const {
+    CExtKey purposeKey, coinKey, accountKey, changeKey;
+    if (!this->Derive(purposeKey, 44 | 0x80000000)) return false;
     if (!purposeKey.Derive(coinKey, coin_type | 0x80000000)) return false;
     if (!coinKey.Derive(accountKey, account | 0x80000000)) return false;
     if (!accountKey.Derive(changeKey, change)) return false;
