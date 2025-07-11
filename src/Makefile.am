@@ -49,7 +49,9 @@ libnote_crypto_a_SOURCES = \
   crypto/ripemd160.cpp \
   crypto/scrypt.cpp \
   crypto/progpow/progpow.cpp \
-  crypto/progpow/progpow_helpers.cpp
+  crypto/progpow/progpow_helpers.cpp \
+  crypto/bip39/bip39.c \
+  mnemonic.cpp
 
 libnote_pow_a_SOURCES = \
   pow.cpp \
@@ -101,6 +103,8 @@ EXTRA_DIST = \
   kawpow/kawpow.cpp \
   kawpow/kawpow_hash.cpp \
   crypto/progpow/progpow.cpp \
-  crypto/progpow/progpow_helpers.cpp
+  crypto/progpow/progpow_helpers.cpp \
+  crypto/bip39/bip39.c \
+  crypto/bip39/bip39.h
 
 CLEANFILES = *.o *.lo *.la *.a *.gcda *.gcno
