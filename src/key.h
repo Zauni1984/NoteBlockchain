@@ -1,3 +1,10 @@
+// Copyright (c) 2009-2010 Satoshi Nakamoto
+// Copyright (c) 2009-2017 The Bitcoin Core developers
+// Copyright (c) 2017 The Zcash developers
+// Copyright (c) 2025 Notecoin Developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #ifndef BITCOIN_KEY_H
 #define BITCOIN_KEY_H
 
@@ -5,21 +12,47 @@
 #include <serialize.h>
 #include <support/allocators/secure.h>
 #include <uint256.h>
-#include <vector>
+#include <chainparams.h>
+
 #include <stdexcept>
+#include <vector>
 #include <string>
 
+/** CPrivKey: Serialized private key */
 typedef std::vector<unsigned char, secure_allocator<unsigned char>> CPrivKey;
 
-class CKey
-{
+/** A Bitcoin private key (secp256k1) */
+class CKey {
 public:
-    static const unsigned int PRIVATE_KEY_SIZE = 279;
+    static const unsigned int PRIVATE_KEY_SIZE            = 279;
     static const unsigned int COMPRESSED_PRIVATE_KEY_SIZE = 214;
 
-    static_assert(
-        PRIVATE_KEY_SIZE >= COMPRESSED_PRIVATE_KEY_SIZE,
-        "COMPRESSED_PRIVATE_KEY_SIZE is larger than PRIVATE_KEY_SIZE");
+    CKey();
+
+    friend bool operator==(const CKey& a, const CKey& b);
+
+    template <typename T>
+    void Set(const T pbegin, const T pend, bool fCompressedIn);
+
+    unsigned int size() const;
+    const unsigned char* begin() const;
+    const unsigned char* end() const;
+
+    bool IsValid() const;
+    bool IsCompressed() const;
+
+    void MakeNewKey(bool fCompressed);
+
+    CPrivKey GetPrivKey() const;
+    CPubKey GetPubKey() const;
+
+    bool Sign(const uint256& hash, std::vector<unsigned char>& vchSig, uint32_t test_case = 0) const;
+    bool SignCompact(const uint256& hash, std::vector<unsigned char>& vchSig) const;
+
+    bool Derive(CKey& keyChild, ChainCode& ccChild, unsigned int nChild, const ChainCode& cc) const;
+
+    bool VerifyPubKey(const CPubKey& vchPubKey) const;
+    bool Load(const CPrivKey& privkey, const CPubKey& vchPubKey, bool fSkipCheck);
 
 private:
     bool fValid;
@@ -27,71 +60,17 @@ private:
     std::vector<unsigned char, secure_allocator<unsigned char>> keydata;
 
     static bool Check(const unsigned char* vch);
-
-public:
-    CKey() : fValid(false), fCompressed(false)
-    {
-        keydata.resize(32);
-    }
-
-    friend bool operator==(const CKey& a, const CKey& b)
-    {
-        return a.fCompressed == b.fCompressed &&
-               a.size() == b.size() &&
-               memcmp(a.keydata.data(), b.keydata.data(), a.size()) == 0;
-    }
-
-    template <typename T>
-    void Set(const T pbegin, const T pend, bool fCompressedIn)
-    {
-        if (size_t(pend - pbegin) != keydata.size()) {
-            fValid = false;
-        } else if (Check(&pbegin[0])) {
-            memcpy(keydata.data(), (unsigned char*)&pbegin[0], keydata.size());
-            fValid = true;
-            fCompressed = fCompressedIn;
-        } else {
-            fValid = false;
-        }
-    }
-
-    unsigned int size() const { return (fValid ? keydata.size() : 0); }
-    const unsigned char* begin() const { return keydata.data(); }
-    const unsigned char* end() const { return keydata.data() + size(); }
-
-    bool IsValid() const { return fValid; }
-    bool IsCompressed() const { return fCompressed; }
-
-    void MakeNewKey(bool fCompressed);
-    CPrivKey GetPrivKey() const;
-    CPubKey GetPubKey() const;
-
-    bool Sign(const uint256& hash, std::vector<unsigned char>& vchSig, uint32_t test_case = 0) const;
-    bool SignCompact(const uint256& hash, std::vector<unsigned char>& vchSig) const;
-    bool Derive(CKey& keyChild, ChainCode& ccChild, unsigned int nChild, const ChainCode& cc) const;
-    bool VerifyPubKey(const CPubKey& vchPubKey) const;
-    bool Load(const CPrivKey& privkey, const CPubKey& vchPubKey, bool fSkipCheck);
 };
 
-// Neue Funktionen für BIP39
-std::vector<unsigned char> MnemonicToSeed(const std::string& mnemonic, const std::string& passphrase = "mnemonic");
-
-struct CExtKey
-{
+/** Extended Key (BIP32) */
+struct CExtKey {
     unsigned char nDepth;
     unsigned char vchFingerprint[4];
     unsigned int nChild;
     ChainCode chaincode;
     CKey key;
 
-    friend bool operator==(const CExtKey& a, const CExtKey& b)
-    {
-        return a.nDepth == b.nDepth &&
-               memcmp(&a.vchFingerprint[0], &b.vchFingerprint[0], sizeof(vchFingerprint)) == 0 &&
-               a.nChild == b.nChild &&
-               a.chaincode == b.chaincode &&
-               a.key == b.key;
-    }
+    friend bool operator==(const CExtKey& a, const CExtKey& b);
 
     void Encode(unsigned char code[BIP32_EXTKEY_SIZE]) const;
     void Decode(const unsigned char code[BIP32_EXTKEY_SIZE]);
@@ -99,15 +78,14 @@ struct CExtKey
     CExtPubKey Neuter() const;
     void SetMaster(const unsigned char* seed, unsigned int nSeedLen);
 
-    // Erweiterung: Masterkey aus 12-Wort-Mnemonic erzeugen
+    /** Neues Feature: Ableitung aus einer BIP39-Mnemonic */
     static CExtKey FromMnemonic(const std::string& mnemonic, const std::string& passphrase = "mnemonic");
 
-    // Erweiterung: BIP44 Ableitung: m / purpose' / coin_type' / account' / change / address_index
-    bool DeriveBIP44(CExtKey& out, uint32_t account, uint32_t change, uint32_t address_index, uint32_t coin_type = 0x80000000) const;
+    /** Neues Feature: Ableitung nach BIP44-Pfad m/44'/coin_type'/account'/change/address */
+    bool DeriveBIP44(CExtKey& out, uint32_t account, uint32_t change, uint32_t index, uint32_t coin_type = Params().BIP44CoinType()) const;
 
     template <typename Stream>
-    void Serialize(Stream& s) const
-    {
+    void Serialize(Stream& s) const {
         unsigned int len = BIP32_EXTKEY_SIZE;
         ::WriteCompactSize(s, len);
         unsigned char code[BIP32_EXTKEY_SIZE];
@@ -116,17 +94,17 @@ struct CExtKey
     }
 
     template <typename Stream>
-    void Unserialize(Stream& s)
-    {
+    void Unserialize(Stream& s) {
         unsigned int len = ::ReadCompactSize(s);
         unsigned char code[BIP32_EXTKEY_SIZE];
         if (len != BIP32_EXTKEY_SIZE)
-            throw std::runtime_error("Invalid extended key size\n");
+            throw std::runtime_error("Invalid extended key size");
         s.read((char*)&code[0], len);
         Decode(code);
     }
 };
 
+// ECC context management
 void ECC_Start(void);
 void ECC_Stop(void);
 bool ECC_InitSanityCheck(void);
