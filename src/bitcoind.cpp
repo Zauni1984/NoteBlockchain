@@ -1,7 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2017 The Bitcoin Core developers
-// Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// Copyright (c) 2009-2024 NoteCoin Developers
+// Distributed under the MIT software license, see COPYING or http://opensource.org/licenses/MIT.
 
 #if defined(HAVE_CONFIG_H)
 #include <config/bitcoin-config.h>
@@ -14,174 +13,130 @@
 #include <rpc/server.h>
 #include <init.h>
 #include <noui.h>
-#include <util.h>
+#include <util/system.h>
+#include <util/strencodings.h>
 #include <httpserver.h>
 #include <httprpc.h>
-#include <utilstrencodings.h>
 
 #include <boost/thread.hpp>
+#include <csignal>
+#include <cstdio>
 
-#include <stdio.h>
-
-/* Introduction text for doxygen: */
-
-/*! \mainpage Developer documentation
+/*! \mainpage NoteCoin Core Daemon Developer Documentation
  *
  * \section intro_sec Introduction
  *
- * This is the developer documentation of the reference client for an experimental new digital currency called Bitcoin (https://www.bitcoin.org/),
- * which enables instant payments to anyone, anywhere in the world. Bitcoin uses peer-to-peer technology to operate
- * with no central authority: managing transactions and issuing money are carried out collectively by the network.
+ * This is the developer documentation for the NoteCoin full node daemon.
+ * NoteCoin is a decentralized cryptocurrency, using peer-to-peer technology
+ * to operate without a central authority. This daemon maintains the network,
+ * validates transactions, and connects miners and users to the blockchain.
  *
- * The software is a community-driven open source project, released under the MIT license.
- *
- * \section Navigation
- * Use the buttons <code>Namespaces</code>, <code>Classes</code> or <code>Files</code> at the top of the page to start navigating the code.
+ * Licensed under the MIT license.
  */
 
 void WaitForShutdown()
 {
-    bool fShutdown = ShutdownRequested();
-    // Tell the main threads to shutdown.
-    while (!fShutdown)
-    {
+    while (!ShutdownRequested()) {
         MilliSleep(200);
-        fShutdown = ShutdownRequested();
     }
     Interrupt();
 }
 
-//////////////////////////////////////////////////////////////////////////////
-//
-// Start
-//
 bool AppInit(int argc, char* argv[])
 {
-    bool fRet = false;
+    bool success = false;
 
-    //
-    // Parameters
-    //
-    // If Qt is used, parameters/bitcoin.conf are parsed in qt/bitcoin.cpp's main()
+    // Parse CLI parameters
     gArgs.ParseParameters(argc, argv);
 
-    // Process help and version before taking care about datadir
-    if (gArgs.IsArgSet("-?") || gArgs.IsArgSet("-h") ||  gArgs.IsArgSet("-help") || gArgs.IsArgSet("-version"))
-    {
-        std::string strUsage = strprintf(_("%s Daemon"), _(PACKAGE_NAME)) + " " + _("version") + " " + FormatFullVersion() + "\n";
+    // Show help or version
+    if (gArgs.IsArgSet("-?") || gArgs.IsArgSet("-h") ||
+        gArgs.IsArgSet("-help") || gArgs.IsArgSet("-version")) {
 
-        if (gArgs.IsArgSet("-version"))
-        {
-            strUsage += FormatParagraph(LicenseInfo());
-        }
-        else
-        {
-            strUsage += "\n" + _("Usage:") + "\n" +
-                  "  notecoind [options]                     " + strprintf(_("Start %s Daemon"), _(PACKAGE_NAME)) + "\n";
+        std::string header = strprintf("%s Daemon version %s\n", PACKAGE_NAME, FormatFullVersion());
 
-            strUsage += "\n" + HelpMessage(HMM_BITCOIND);
+        if (gArgs.IsArgSet("-version")) {
+            header += FormatParagraph(LicenseInfo());
+        } else {
+            header += "\nUsage:\n"
+                      "  notecoind [options]                     Start NoteCoin Daemon\n\n" +
+                      HelpMessage(HMM_BITCOIND);
         }
 
-        fprintf(stdout, "%s", strUsage.c_str());
+        std::fprintf(stdout, "%s", header.c_str());
         return true;
     }
 
-    try
-    {
-        if (!fs::is_directory(GetDataDir(false)))
-        {
-            fprintf(stderr, "Error: Specified data directory \"%s\" does not exist.\n", gArgs.GetArg("-datadir", "").c_str());
+    try {
+        if (!fs::is_directory(GetDataDir(false))) {
+            std::fprintf(stderr, "Error: Specified data directory \"%s\" does not exist.\n",
+                         gArgs.GetArg("-datadir", "").c_str());
             return false;
         }
-        try
-        {
+
+        try {
             gArgs.ReadConfigFile(gArgs.GetArg("-conf", BITCOIN_CONF_FILENAME));
         } catch (const std::exception& e) {
-            fprintf(stderr,"Error reading configuration file: %s\n", e.what());
+            std::fprintf(stderr, "Error reading configuration file: %s\n", e.what());
             return false;
         }
-        // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
+
         try {
             SelectParams(ChainNameFromCommandLine());
         } catch (const std::exception& e) {
-            fprintf(stderr, "Error: %s\n", e.what());
+            std::fprintf(stderr, "Error: %s\n", e.what());
             return false;
         }
 
-        // Error out when loose non-argument tokens are encountered on command line
-        for (int i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; ++i) {
             if (!IsSwitchChar(argv[i][0])) {
-                fprintf(stderr, "Error: Command line contains unexpected token '%s', see notecoind -h for a list of options.\n", argv[i]);
+                std::fprintf(stderr, "Error: Unexpected token '%s'. See notecoind -h for options.\n", argv[i]);
                 return false;
             }
         }
 
-        // -server defaults to true for bitcoind but not for the GUI so do this here
         gArgs.SoftSetBoolArg("-server", true);
-        // Set this early so that parameter interactions go to console
         InitLogging();
         InitParameterInteraction();
-        if (!AppInitBasicSetup())
-        {
-            // InitError will have been called with detailed error, which ends up on console
-            return false;
-        }
-        if (!AppInitParameterInteraction())
-        {
-            // InitError will have been called with detailed error, which ends up on console
-            return false;
-        }
-        if (!AppInitSanityChecks())
-        {
-            // InitError will have been called with detailed error, which ends up on console
-            return false;
-        }
-        if (gArgs.GetBoolArg("-daemon", false))
-        {
-#if HAVE_DECL_DAEMON
-            fprintf(stdout, "NoteCoin server starting\n");
 
-            // Daemonize
-            if (daemon(1, 0)) { // don't chdir (1), do close FDs (0)
-                fprintf(stderr, "Error: daemon() failed: %s\n", strerror(errno));
+        if (!AppInitBasicSetup()) return false;
+        if (!AppInitParameterInteraction()) return false;
+        if (!AppInitSanityChecks()) return false;
+
+        if (gArgs.GetBoolArg("-daemon", false)) {
+#if HAVE_DECL_DAEMON
+            std::fprintf(stdout, "NoteCoin server starting\n");
+            if (daemon(1, 0)) {
+                std::fprintf(stderr, "Error: daemon() failed: %s\n", std::strerror(errno));
                 return false;
             }
 #else
-            fprintf(stderr, "Error: -daemon is not supported on this operating system\n");
+            std::fprintf(stderr, "Error: -daemon not supported on this OS\n");
             return false;
-#endif // HAVE_DECL_DAEMON
+#endif
         }
-        // Lock data directory after daemonization
-        if (!AppInitLockDataDirectory())
-        {
-            // If locking the data directory failed, exit immediately
-            return false;
-        }
-        fRet = AppInitMain();
-    }
-    catch (const std::exception& e) {
+
+        if (!AppInitLockDataDirectory()) return false;
+        success = AppInitMain();
+    } catch (const std::exception& e) {
         PrintExceptionContinue(&e, "AppInit()");
     } catch (...) {
         PrintExceptionContinue(nullptr, "AppInit()");
     }
 
-    if (!fRet)
-    {
+    if (!success) {
         Interrupt();
     } else {
         WaitForShutdown();
     }
-    Shutdown();
 
-    return fRet;
+    Shutdown();
+    return success;
 }
 
 int main(int argc, char* argv[])
 {
     SetupEnvironment();
-
-    // Connect bitcoind signal handlers
-    noui_connect();
-
-    return (AppInit(argc, argv) ? EXIT_SUCCESS : EXIT_FAILURE);
+    noui_connect(); // Connect signal handlers
+    return AppInit(argc, argv) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
