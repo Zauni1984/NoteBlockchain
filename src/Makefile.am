@@ -51,7 +51,10 @@ libnote_crypto_a_SOURCES = \
   crypto/progpow/progpow.cpp \
   crypto/progpow/progpow_helpers.cpp \
   crypto/bip39/bip39.c \
-  mnemonic.cpp
+  mnemonic.cpp \
+  iso20022/pain001.cpp \
+  iso20022/pacs008.cpp \
+  iso20022/pain002.cpp
 
 libnote_pow_a_SOURCES = \
   pow.cpp \
@@ -105,6 +108,13 @@ EXTRA_DIST = \
   crypto/progpow/progpow.cpp \
   crypto/progpow/progpow_helpers.cpp \
   crypto/bip39/bip39.c \
-  crypto/bip39/bip39.h
+  crypto/bip39/bip39.h \
+  crypto/bip39/wordlist_english.inl \
+  iso20022/pain001.cpp \
+  iso20022/pain001.h \
+  iso20022/pacs008.cpp \
+  iso20022/pacs008.h \
+  iso20022/pain002.cpp \
+  iso20022/pain002.h
 
 CLEANFILES = *.o *.lo *.la *.a *.gcda *.gcno
